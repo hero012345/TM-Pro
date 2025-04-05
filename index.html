@@ -1,0 +1,1802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            DEFAULT: '#5D5CDE',
+                            50: '#EEEEFF',
+                            100: '#D8D8FF',
+                            200: '#B1B1FF',
+                            300: '#8A8AFF',
+                            400: '#6463FF',
+                            500: '#5D5CDE',
+                            600: '#3939D9',
+                            700: '#2222B6',
+                            800: '#151593',
+                            900: '#0E0E70'
+                        },
+                        dark: {
+                            bg: 'var(--dark-bg, #181818)',
+                            card: 'var(--dark-card, #252525)',
+                            text: 'var(--dark-text, #E1E1E1)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --primary-color: #5D5CDE;
+            --primary-hover: #4a49b8;
+            --dark-bg: #181818;
+            --dark-card: #252525;
+            --dark-text: #E1E1E1;
+            --light-bg: #FFFFFF;
+            --light-card: #FFFFFF;
+            --light-text: #333333;
+            --accent-color: #00C896;
+        }
+        
+        .task-item {
+            transition: all 0.3s ease;
+        }
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-in-right {
+            animation: slideInRight 0.3s ease-out;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        /* Calendar animations */
+        .calendar-icon {
+            position: relative;
+            width: 24px;
+            height: 24px;
+        }
+        .calendar-icon svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: all 0.5s ease;
+        }
+        .calendar-pulse {
+            animation: calendarPulse 0.5s cubic-bezier(0.4, 0, 0.6, 1);
+        }
+        @keyframes calendarPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+        .calendar-rotate {
+            animation: calendarRotate 0.8s ease;
+        }
+        @keyframes calendarRotate {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(180deg); }
+            100% { transform: rotateY(360deg); }
+        }
+        .calendar-bounce {
+            animation: calendarBounce 0.8s cubic-bezier(0.28, 0.84, 0.42, 1);
+        }
+        @keyframes calendarBounce {
+            0% { transform: scale(1); }
+            25% { transform: scale(0.9); }
+            50% { transform: scale(1.1); }
+            75% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+        .calendar-fly {
+            animation: calendarFly 1s ease;
+        }
+        @keyframes calendarFly {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            50% { transform: translate(30px, -20px) scale(1.2); opacity: 0.7; }
+            100% { transform: translate(50px, -30px) scale(0); opacity: 0; }
+        }
+        .calendar-added {
+            animation: calendarAdded 0.5s ease;
+        }
+        @keyframes calendarAdded {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Notification styles */
+        .notification-container {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 50;
+            max-width: 350px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .notification {
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            width: 100%;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease-out;
+        }
+        .notification.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .notification.info {
+            background-color: #EBF5FF;
+            border-left: 4px solid #3498DB;
+            color: #2C3E50;
+        }
+        .notification.success {
+            background-color: #EDF7ED;
+            border-left: 4px solid #4CAF50;
+            color: #1B5E20;
+        }
+        .notification.warning {
+            background-color: #FFF8E6;
+            border-left: 4px solid #FFC107;
+            color: #E65100;
+        }
+        .notification.error {
+            background-color: #FEE8E7;
+            border-left: 4px solid #F44336;
+            color: #B71C1C;
+        }
+        .notification-icon {
+            flex-shrink: 0;
+        }
+        .notification-content {
+            flex-grow: 1;
+        }
+        .notification-close {
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        
+        /* Theme picker styles */
+        .color-option {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s ease;
+        }
+        .color-option:hover {
+            transform: scale(1.1);
+        }
+        .color-option.selected::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background-color: white;
+            border-radius: 50%;
+        }
+        
+        /* Custom color picker */
+        .custom-color-picker {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        .custom-color-picker input[type="color"] {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        /* Mini calendar styles */
+        .mini-calendar {
+            font-size: 0.8rem;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .calendar-header {
+            text-align: center;
+            padding: 0.5rem;
+            font-weight: bold;
+        }
+        .calendar-body {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+        }
+        .calendar-day {
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .calendar-day:hover {
+            background-color: rgba(93, 92, 222, 0.1);
+        }
+        .calendar-day.today {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .calendar-day.has-task {
+            position: relative;
+        }
+        .calendar-day.has-task::after {
+            content: '';
+            position: absolute;
+            bottom: 3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: var(--accent-color);
+        }
+        .specialmod{
+          color: gray ;
+          text-shadow: #3498DB 0px 0px 5px;
+        }
+    </style>
+</head>
+<body class="bg-white dark:bg-dark-bg min-h-screen transition-colors duration-300">
+    <div class="container mx-auto px-4 py-8 max-w-md">
+        <!-- Login Screen -->
+        <div id="login-screen" class="bg-white dark:bg-dark-card shadow-lg rounded-lg p-6 transition-colors duration-300 fade-in">
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-white mb-6 text-center">Task Manager Pro</h1>
+            
+            <div class="mb-8">
+                <p class="text-sm text-gray-600 dark:text-gray-300 text-center mb-6">Sign in to access your tasks and sync with Google Calendar</p>
+                
+                <button id="google-login-btn" class="w-full flex items-center justify-center bg-white dark:bg-dark-card border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-300 mb-4">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Sign in with Google
+                </button>
+                
+                <div class="relative flex items-center justify-center mb-4">
+                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                    <span class="flex-shrink mx-4 text-sm text-gray-500 dark:text-gray-400">or</span>
+                    <div class="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+                
+                <form id="login-form">
+                    <div class="mb-4">
+                        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email address</label>
+                        <input 
+                            type="email" 
+                            id="email" 
+                            class="w-full border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-lg px-4 py-2 text-base focus:outline-none focus:border-primary"
+                            placeholder="you@example.com"
+                            required
+                        >
+                    </div>
+                    <div class="mb-6">
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            class="w-full border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-lg px-4 py-2 text-base focus:outline-none focus:border-primary"
+                            placeholder="••••••••"
+                            required
+                        >
+                    </div>
+                    <button 
+                        type="submit" 
+                        class="w-full bg-primary text-white py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors duration-300"
+                    >
+                        Sign in
+                    </button>
+                </form>
+                
+                <p class="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
+                    For demonstration purposes, any email/password will work
+                </p>
+            </div>
+            
+            <div class="text-center">
+                <button id="theme-toggle-login" class="p-2 text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+            </div>
+            
+        </div>
+
+        <!-- Task Manager App -->
+        <div id="app-screen" class="bg-white dark:bg-dark-card shadow-lg rounded-lg p-6 transition-colors duration-300 hidden fade-in">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 dark:text-white">Task Manager</h1>
+                <div class="flex items-center space-x-2">
+                    <button id="notification-history-btn" class="text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none p-2 relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span id="unread-badge" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">0</span>
+                    </button>
+                    <button id="sync-button" class="text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none p-2 relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span id="sync-badge" class="hidden absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">✓</span>
+                    </button>
+                    <button id="theme-button" class="text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none p-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                        </svg>
+                    </button>
+                    <button id="theme-toggle" class="text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none p-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
+                    <div class="relative">
+                        <button id="profile-button" class="text-gray-500 dark:text-gray-300 hover:text-primary focus:outline-none p-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                        </button>
+                        <div id="profile-dropdown" class="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-card shadow-lg rounded-lg py-1 z-10 hidden">
+                            <div class="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                                <div class="text-sm font-medium text-gray-900 dark:text-white" id="user-email"></div>
+                            </div>
+                            <button id="logout-btn" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Sign out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <form id="task-form" class="flex">
+                    <input 
+                        type="text" 
+                        id="task-input" 
+                        placeholder="Add a new task..." 
+                        class="flex-1 border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-l-lg px-4 py-2 text-base focus:outline-none focus:border-primary"
+                    >
+                    <button 
+                        type="submit" 
+                        class="bg-primary text-white px-4 py-2 rounded-r-lg hover:bg-opacity-90 transition-colors duration-300"
+                    >
+                        Add
+                    </button>
+                </form>
+            </div>
+
+            <div class="mb-4 flex justify-between">
+                <div class="flex space-x-1">
+                    <button class="filter-btn px-3 py-1 rounded text-sm font-medium text-primary bg-primary bg-opacity-10 hover:bg-opacity-20 transition-colors" data-filter="all">All</button>
+                    <button class="filter-btn px-3 py-1 rounded text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="active">Active</button>
+                    <button class="filter-btn px-3 py-1 rounded text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-filter="completed">Completed</button>
+                </div>
+                <button id="calendar-view-btn" class="text-sm text-gray-600 dark:text-gray-300 hover:text-primary transition-colors flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Calendar
+                </button>
+            </div>
+
+            <div id="task-counter" class="text-sm text-gray-500 dark:text-gray-400 mb-2">0 tasks left</div>
+
+            <!-- List View (default) -->
+            <div id="list-view">
+                <ul id="task-list" class="divide-y divide-gray-200 dark:divide-gray-700">
+                    <!-- Tasks will be added here dynamically -->
+                </ul>
+
+                <div id="empty-state" class="py-8 text-center text-gray-500 dark:text-gray-400">
+                    <p>No tasks yet. Add a task to get started!</p>
+                </div>
+                
+            </div>
+
+            <!-- Calendar View (hidden by default) -->
+            <div id="calendar-view" class="hidden">
+                <div class="mb-4 flex justify-between items-center">
+                    <button id="prev-month" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <h3 id="current-month-display" class="text-gray-800 dark:text-white font-medium">May 2024</h3>
+                    <button id="next-month" class="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="mini-calendar bg-white dark:bg-dark-card">
+                    <div class="calendar-body grid-cols-7">
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Su</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Mo</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Tu</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">We</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Th</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Fr</div>
+                        <div class="text-center text-gray-500 dark:text-gray-400 py-1">Sa</div>
+                    </div>
+                    <div id="calendar-days" class="calendar-body grid-cols-7">
+                        <!-- Calendar days will be added here dynamically -->
+                    </div>
+                </div>
+                <div id="day-tasks" class="mt-4">
+                    <h4 id="selected-date" class="font-medium text-gray-800 dark:text-white mb-2"></h4>
+                    <ul id="day-task-list" class="divide-y divide-gray-200 dark:divide-gray-700">
+                        <!-- Tasks for selected day will be added here -->
+                    </ul>
+                    <div id="empty-day" class="py-4 text-center text-gray-500 dark:text-gray-400">
+                        <p>No tasks for this date</p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+
+        <!-- Theme Customization Panel -->
+        <div id="theme-panel" class="fixed inset-y-0 right-0 max-w-xs w-full bg-white dark:bg-dark-card shadow-lg transform translate-x-full transition-transform duration-300 ease-in-out z-30">
+            <div class="p-6 h-full flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Theme Settings</h2>
+                    <button id="close-theme-panel" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Color Themes</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="color-option selected" style="background-color: #5D5CDE;" data-color="#5D5CDE" data-theme="default"></div>
+                        <div class="color-option" style="background-color: #00C896;" data-color="#00C896" data-theme="teal"></div>
+                        <div class="color-option" style="background-color: #FF6B6B;" data-color="#FF6B6B" data-theme="coral"></div>
+                        <div class="color-option" style="background-color: #FFA41B;" data-color="#FFA41B" data-theme="amber"></div>
+                        <div class="color-option" style="background-color: #4361EE;" data-color="#4361EE" data-theme="royal"></div>
+                        <div class="custom-color-picker">
+                            <input type="color" id="custom-color" value="#5D5CDE">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Accent Color</h3>
+                    <div class="flex flex-wrap gap-3">
+                        <div class="color-option selected" style="background-color: #00C896;" data-accent="#00C896"></div>
+                        <div class="color-option" style="background-color: #FF6B6B;" data-accent="#FF6B6B"></div>
+                        <div class="color-option" style="background-color: #FFA41B;" data-accent="#FFA41B"></div>
+                        <div class="color-option" style="background-color: #4361EE;" data-accent="#4361EE"></div>
+                        <div class="custom-color-picker">
+                            <input type="color" id="custom-accent" value="#00C896">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dark Mode Colors</h3>
+                    <div class="mb-4">
+                        <label for="dark-bg" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Background</label>
+                        <div class="flex">
+                            <input type="color" id="dark-bg" value="#181818" class="rounded-l h-8 w-8">
+                            <div class="flex-1 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-r">#181818</div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="dark-card" class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Card</label>
+                        <div class="flex">
+                            <input type="color" id="dark-card" value="#252525" class="rounded-l h-8 w-8">
+                            <div class="flex-1 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-r">#252525</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Animation Speed</h3>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs text-gray-600 dark:text-gray-400">Slow</span>
+                        <span class="text-xs text-gray-600 dark:text-gray-400">Fast</span>
+                    </div>
+                    <input 
+                        type="range" 
+                        min="0.5" 
+                        max="2" 
+                        step="0.1" 
+                        value="1" 
+                        class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer" 
+                        id="animation-speed"
+                    >
+                </div>
+                
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Calendar Animation Style</h3>
+                    <select id="calendar-animation-style" class="w-full border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary">
+                        <option value="pulse">Pulse</option>
+                        <option value="rotate">Rotate</option>
+                        <option value="bounce">Bounce</option>
+                        <option value="fly">Fly</option>
+                    </select>
+                </div>
+                
+                <div class="mt-auto">
+                    <button id="save-theme" class="w-full bg-primary text-white py-2 rounded-lg font-medium hover:bg-opacity-90 transition-colors duration-300">
+                        Save Theme
+                    </button>
+                    <button id="reset-theme" class="w-full mt-2 text-gray-600 dark:text-gray-300 py-2 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-300">
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Google Calendar Sync Modal -->
+        <div id="sync-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
+            <div class="bg-white dark:bg-dark-card rounded-lg shadow-lg p-6 w-full max-w-md mx-4 slide-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Sync with Google Calendar</h2>
+                    <button id="close-sync-modal" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="sync-enabled" class="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary">
+                        <span class="ml-2 text-gray-700 dark:text-gray-300">Enable Google Calendar sync</span>
+                    </label>
+                </div>
+                
+                <div id="sync-options" class="mb-6">
+                    <div class="mb-4">
+                        <label for="calendar-select" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select calendar</label>
+                        <select id="calendar-select" class="w-full border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-lg px-4 py-2 text-base focus:outline-none focus:border-primary">
+                            <option value="primary">My Calendar (Primary)</option>
+                            <option value="work">Work</option>
+                            <option value="personal">Personal</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="sync-frequency" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sync frequency</label>
+                        <select id="sync-frequency" class="w-full border-2 border-gray-200 dark:border-gray-700 dark:bg-dark-card dark:text-dark-text rounded-lg px-4 py-2 text-base focus:outline-none focus:border-primary">
+                            <option value="immediately">Immediately</option>
+                            <option value="hourly">Hourly</option>
+                            <option value="daily">Daily</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="sync-status" class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Last sync: Never
+                </div>
+                
+                <div class="flex justify-end">
+                    <button id="save-sync-settings" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors duration-300">
+                        Save Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification History Modal -->
+        <div id="notification-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-20 hidden">
+            <div class="bg-white dark:bg-dark-card rounded-lg shadow-lg p-6 w-full max-w-md mx-4 slide-in h-3/4 flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Notification History</h2>
+                    <button id="close-notification-modal" class="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div id="notification-history" class="overflow-y-auto flex-grow">
+                    <!-- Notification history will be added here -->
+                </div>
+                
+                <div class="mt-4 flex justify-end">
+                    <button id="clear-notifications" class="text-sm text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-300">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification container -->
+        <div id="notification-container" class="notification-container">
+            <!-- Notifications will be added here -->
+        </div>
+        
+    </div>
+    <center><h5 class="specialmod">Developed by LG.ghazel</h5></center>
+    <script>
+        // Initialize dark mode based on user preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+
+        // Application state
+        const appState = {
+            currentUser: null,
+            tasks: [],
+            currentFilter: 'all',
+            syncEnabled: false,
+            syncFrequency: 'immediately',
+            selectedCalendar: 'primary',
+            lastSync: null,
+            notifications: [],
+            unreadNotifications: 0,
+            theme: {
+                primaryColor: '#5D5CDE',
+                accentColor: '#00C896',
+                darkBg: '#181818',
+                darkCard: '#252525',
+                animationSpeed: 1,
+                calendarAnimation: 'pulse'
+            },
+            calendar: {
+                currentMonth: new Date().getMonth(),
+                currentYear: new Date().getFullYear(),
+                selectedDate: new Date()
+            }
+        };
+
+        // DOM Elements
+        const loginScreen = document.getElementById('login-screen');
+        const appScreen = document.getElementById('app-screen');
+        const loginForm = document.getElementById('login-form');
+        const googleLoginBtn = document.getElementById('google-login-btn');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const taskForm = document.getElementById('task-form');
+        const taskInput = document.getElementById('task-input');
+        const taskList = document.getElementById('task-list');
+        const taskCounter = document.getElementById('task-counter');
+        const clearCompletedBtn = document.getElementById('clear-completed');
+        const emptyState = document.getElementById('empty-state');
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeToggleLogin = document.getElementById('theme-toggle-login');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const syncButton = document.getElementById('sync-button');
+        const syncBadge = document.getElementById('sync-badge');
+        const syncModal = document.getElementById('sync-modal');
+        const closeSyncModal = document.getElementById('close-sync-modal');
+        const syncEnabled = document.getElementById('sync-enabled');
+        const syncOptions = document.getElementById('sync-options');
+        const calendarSelect = document.getElementById('calendar-select');
+        const syncFrequency = document.getElementById('sync-frequency');
+        const syncStatus = document.getElementById('sync-status');
+        const saveSyncSettings = document.getElementById('save-sync-settings');
+        const profileButton = document.getElementById('profile-button');
+        const profileDropdown = document.getElementById('profile-dropdown');
+        const userEmail = document.getElementById('user-email');
+        const logoutBtn = document.getElementById('logout-btn');
+        const themeButton = document.getElementById('theme-button');
+        const themePanel = document.getElementById('theme-panel');
+        const closeThemePanel = document.getElementById('close-theme-panel');
+        const saveThemeBtn = document.getElementById('save-theme');
+        const resetThemeBtn = document.getElementById('reset-theme');
+        const colorOptions = document.querySelectorAll('.color-option[data-color]');
+        const accentOptions = document.querySelectorAll('.color-option[data-accent]');
+        const customColorInput = document.getElementById('custom-color');
+        const customAccentInput = document.getElementById('custom-accent');
+        const darkBgInput = document.getElementById('dark-bg');
+        const darkCardInput = document.getElementById('dark-card');
+        const animationSpeedInput = document.getElementById('animation-speed');
+        const calendarAnimationStyle = document.getElementById('calendar-animation-style');
+        const notificationContainer = document.getElementById('notification-container');
+        const notificationHistoryBtn = document.getElementById('notification-history-btn');
+        const notificationModal = document.getElementById('notification-modal');
+        const closeNotificationModal = document.getElementById('close-notification-modal');
+        const notificationHistory = document.getElementById('notification-history');
+        const clearNotificationsBtn = document.getElementById('clear-notifications');
+        const unreadBadge = document.getElementById('unread-badge');
+        const listView = document.getElementById('list-view');
+        const calendarView = document.getElementById('calendar-view');
+        const calendarViewBtn = document.getElementById('calendar-view-btn');
+        const calendarDays = document.getElementById('calendar-days');
+        const currentMonthDisplay = document.getElementById('current-month-display');
+        const prevMonthBtn = document.getElementById('prev-month');
+        const nextMonthBtn = document.getElementById('next-month');
+        const selectedDateDisplay = document.getElementById('selected-date');
+        const dayTaskList = document.getElementById('day-task-list');
+        const emptyDay = document.getElementById('empty-day');
+
+        // Helper functions
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function updateTaskCounter() {
+            const remainingTasks = appState.tasks.filter(task => !task.completed).length;
+            taskCounter.textContent = `${remainingTasks} task${remainingTasks !== 1 ? 's' : ''} left`;
+        }
+
+        function showEmptyState() {
+            const visibleTasks = getFilteredTasks();
+            emptyState.style.display = visibleTasks.length === 0 ? 'block' : 'none';
+        }
+
+        function getFilteredTasks() {
+            switch (appState.currentFilter) {
+                case 'active':
+                    return appState.tasks.filter(task => !task.completed);
+                case 'completed':
+                    return appState.tasks.filter(task => task.completed);
+                case 'all':
+                default:
+                    return appState.tasks;
+            }
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function isSameDay(d1, d2) {
+            return d1.getDate() === d2.getDate() &&
+                   d1.getMonth() === d2.getMonth() &&
+                   d1.getFullYear() === d2.getFullYear();
+        }
+
+        function getTasksForDate(date) {
+            return appState.tasks.filter(task => {
+                const taskDate = new Date(task.dueDate || task.createdAt);
+                return isSameDay(taskDate, date);
+            });
+        }
+
+        // Render tasks for list view
+        function renderTasks() {
+            const filteredTasks = getFilteredTasks();
+            
+            taskList.innerHTML = '';
+            
+            filteredTasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'task-item py-3 flex items-center justify-between group';
+                li.dataset.id = task.id;
+                
+                const taskContent = document.createElement('div');
+                taskContent.className = 'flex items-center flex-1';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'w-5 h-5 text-primary rounded border-gray-300 dark:border-gray-600 focus:ring-primary mr-3';
+                checkbox.checked = task.completed;
+                
+                const taskText = document.createElement('span');
+                taskText.className = `text-gray-800 dark:text-gray-200 ${task.completed ? 'completed' : ''}`;
+                taskText.textContent = task.text;
+                
+                const taskDate = document.createElement('span');
+                taskDate.className = 'ml-2 text-xs text-gray-500 dark:text-gray-400';
+                if (task.dueDate) {
+                    taskDate.textContent = formatDate(task.dueDate);
+                }
+                
+                taskContent.appendChild(checkbox);
+                taskContent.appendChild(taskText);
+                taskContent.appendChild(taskDate);
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity';
+                
+                const calendarBtn = document.createElement('button');
+                calendarBtn.className = 'calendar-icon text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary';
+                calendarBtn.title = task.addedToCalendar ? 'Added to Google Calendar' : 'Add to Google Calendar';
+                calendarBtn.innerHTML = task.addedToCalendar ? 
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /><circle cx="12" cy="14" r="2" fill="currentColor" /></svg>' :
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary';
+                editBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>';
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-500';
+                deleteBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>';
+                
+                actionsDiv.appendChild(calendarBtn);
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(deleteBtn);
+                
+                li.appendChild(taskContent);
+                li.appendChild(actionsDiv);
+                
+                taskList.appendChild(li);
+                
+                // Event listeners for task items
+                checkbox.addEventListener('change', () => toggleTaskCompletion(task.id));
+                calendarBtn.addEventListener('click', () => toggleTaskCalendarStatus(task.id, calendarBtn));
+                editBtn.addEventListener('click', () => editTask(task.id));
+                deleteBtn.addEventListener('click', () => deleteTask(task.id));
+            });
+            
+            updateTaskCounter();
+            showEmptyState();
+        }
+
+        // Render tasks for calendar day view
+        function renderDayTasks() {
+            const tasksForDay = getTasksForDate(appState.calendar.selectedDate);
+            
+            dayTaskList.innerHTML = '';
+            emptyDay.style.display = tasksForDay.length === 0 ? 'block' : 'none';
+            
+            tasksForDay.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'py-3 flex items-center justify-between group';
+                li.dataset.id = task.id;
+                
+                const taskContent = document.createElement('div');
+                taskContent.className = 'flex items-center flex-1';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'w-5 h-5 text-primary rounded border-gray-300 dark:border-gray-600 focus:ring-primary mr-3';
+                checkbox.checked = task.completed;
+                
+                const taskText = document.createElement('span');
+                taskText.className = `text-gray-800 dark:text-gray-200 ${task.completed ? 'completed' : ''}`;
+                taskText.textContent = task.text;
+                
+                taskContent.appendChild(checkbox);
+                taskContent.appendChild(taskText);
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'flex space-x-2';
+                
+                const calendarBtn = document.createElement('button');
+                calendarBtn.className = 'calendar-icon text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary';
+                calendarBtn.title = task.addedToCalendar ? 'Added to Google Calendar' : 'Add to Google Calendar';
+                calendarBtn.innerHTML = task.addedToCalendar ? 
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /><circle cx="12" cy="14" r="2" fill="currentColor" /></svg>' :
+                    '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+                
+                actionsDiv.appendChild(calendarBtn);
+                
+                li.appendChild(taskContent);
+                li.appendChild(actionsDiv);
+                
+                dayTaskList.appendChild(li);
+                
+                // Event listeners
+                checkbox.addEventListener('change', () => {
+                    toggleTaskCompletion(task.id);
+                    renderCalendar(); // Refresh calendar to update task indicators
+                });
+                
+                calendarBtn.addEventListener('click', () => {
+                    toggleTaskCalendarStatus(task.id, calendarBtn);
+                    renderCalendar(); // Refresh calendar to update task indicators
+                });
+            });
+        }
+
+        // Render calendar
+        function renderCalendar() {
+            const year = appState.calendar.currentYear;
+            const month = appState.calendar.currentMonth;
+            
+            // Set the month and year display
+            const monthName = new Date(year, month, 1).toLocaleString('default', { month: 'long' });
+            currentMonthDisplay.textContent = `${monthName} ${year}`;
+            
+            // Set the selected date display
+            selectedDateDisplay.textContent = formatDate(appState.calendar.selectedDate);
+            
+            // Clear the calendar
+            calendarDays.innerHTML = '';
+            
+            // Get the first day of the month
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            
+            // Get the day of the week the first day falls on (0 = Sunday, 6 = Saturday)
+            const firstDayOfWeek = firstDay.getDay();
+            
+            // Add empty cells for days before the first day of the month
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day text-gray-300 dark:text-gray-600';
+                calendarDays.appendChild(emptyDay);
+            }
+            
+            // Add cells for each day of the month
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const date = new Date(year, month, day);
+                const dayElement = document.createElement('div');
+                
+                // Check if this day has tasks
+                const tasksForDay = getTasksForDate(date);
+                const hasTask = tasksForDay.length > 0;
+                
+                // Check if this is today
+                const isToday = isSameDay(date, new Date());
+                
+                // Check if this is the selected date
+                const isSelected = isSameDay(date, appState.calendar.selectedDate);
+                
+                dayElement.className = `calendar-day text-gray-700 dark:text-gray-300 ${isToday ? 'today' : ''} ${hasTask ? 'has-task' : ''} ${isSelected ? 'bg-primary-100 dark:bg-primary-900 font-bold' : ''}`;
+                dayElement.textContent = day;
+                
+                // Add completed task indicator
+                if (hasTask) {
+                    const completedTasks = tasksForDay.filter(task => task.completed).length;
+                    if (completedTasks === tasksForDay.length && tasksForDay.length > 0) {
+                        dayElement.classList.add('text-green-500');
+                    }
+                }
+                
+                dayElement.addEventListener('click', () => {
+                    appState.calendar.selectedDate = date;
+                    renderCalendar();
+                    renderDayTasks();
+                });
+                
+                calendarDays.appendChild(dayElement);
+            }
+        }
+
+        // Task management functions
+        function addTask(text, dueDate) {
+            if (text.trim() === '') {
+                taskInput.classList.add('shake', 'border-red-500');
+                setTimeout(() => {
+                    taskInput.classList.remove('shake', 'border-red-500');
+                }, 500);
+                return;
+            }
+            
+            const newTask = {
+                id: generateId(),
+                text: text.trim(),
+                completed: false,
+                createdAt: new Date(),
+                dueDate: dueDate,
+                addedToCalendar: false
+            };
+            
+            appState.tasks.unshift(newTask);
+            taskInput.value = '';
+            renderTasks();
+            
+            // If in calendar view, refresh the calendar
+            if (calendarView.style.display !== 'none') {
+                renderCalendar();
+                renderDayTasks();
+            }
+            
+            // Show notification
+            showNewNotification({
+                type: 'success',
+                title: 'Task Added',
+                message: `Added new task: "${text.trim()}"`,
+                duration: 3000
+            });
+            
+            // Auto-sync with Google Calendar if enabled
+            if (appState.syncEnabled && appState.syncFrequency === 'immediately') {
+                syncWithGoogleCalendar();
+            }
+        }
+
+        function toggleTaskCompletion(id) {
+            const taskIndex = appState.tasks.findIndex(task => task.id === id);
+            if (taskIndex !== -1) {
+                const task = appState.tasks[taskIndex];
+                task.completed = !task.completed;
+                renderTasks();
+                
+                // If in calendar view, refresh the calendar
+                if (calendarView.style.display !== 'none') {
+                    renderCalendar();
+                    renderDayTasks();
+                }
+                
+                // Show notification
+                showNewNotification({
+                    type: 'info',
+                    title: task.completed ? 'Task Completed' : 'Task Reopened',
+                    message: `"${task.text}" marked as ${task.completed ? 'completed' : 'active'}`,
+                    duration: 3000
+                });
+                
+                // Auto-sync with Google Calendar if enabled
+                if (appState.syncEnabled && appState.syncFrequency === 'immediately') {
+                    syncWithGoogleCalendar();
+                }
+            }
+        }
+
+        function toggleTaskCalendarStatus(id, buttonElement) {
+            const taskIndex = appState.tasks.findIndex(task => task.id === id);
+            if (taskIndex !== -1) {
+                const task = appState.tasks[taskIndex];
+                
+                // Animate the calendar icon
+                if (buttonElement) {
+                    const animationClass = `calendar-${appState.theme.calendarAnimation}`;
+                    buttonElement.classList.add(animationClass);
+                    setTimeout(() => {
+                        buttonElement.classList.remove(animationClass);
+                    }, 800);
+                }
+                
+                if (task.addedToCalendar) {
+                    // Remove from calendar with animation
+                    task.addedToCalendar = false;
+                    
+                    // Update calendar icon
+                    if (buttonElement) {
+                        buttonElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+                        buttonElement.title = 'Add to Google Calendar';
+                    }
+                    
+                    showNewNotification({
+                        type: 'info',
+                        title: 'Removed from Calendar',
+                        message: `Removed "${task.text}" from Google Calendar`,
+                        duration: 3000
+                    });
+                } else {
+                    // Add to calendar with animation
+                    task.addedToCalendar = true;
+                    
+                    // If the task doesn't have a due date, set it to today
+                    if (!task.dueDate) {
+                        task.dueDate = new Date();
+                    }
+                    
+                    // Update calendar icon
+                    if (buttonElement) {
+                        buttonElement.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /><circle cx="12" cy="14" r="2" fill="currentColor" /></svg>';
+                        buttonElement.title = 'Added to Google Calendar';
+                    }
+                    
+                    showNewNotification({
+                        type: 'success',
+                        title: 'Added to Calendar',
+                        message: `Added "${task.text}" to Google Calendar`,
+                        duration: 3000
+                    });
+                }
+                
+                renderTasks();
+                
+                // Auto-sync with Google Calendar if enabled
+                if (appState.syncEnabled && appState.syncFrequency === 'immediately') {
+                    syncWithGoogleCalendar();
+                }
+            }
+        }
+
+        function editTask(id) {
+            const task = appState.tasks.find(task => task.id === id);
+            if (!task) return;
+            
+            const newText = prompt('Edit task:', task.text);
+            if (newText !== null && newText.trim() !== '') {
+                task.text = newText.trim();
+                renderTasks();
+                
+                // If in calendar view, refresh the day tasks
+                if (calendarView.style.display !== 'none') {
+                    renderDayTasks();
+                }
+                
+                showNewNotification({
+                    type: 'info',
+                    title: 'Task Updated',
+                    message: `Updated task to "${newText.trim()}"`,
+                    duration: 3000
+                });
+                
+                // Auto-sync with Google Calendar if enabled
+                if (appState.syncEnabled && appState.syncFrequency === 'immediately' && task.addedToCalendar) {
+                    syncWithGoogleCalendar();
+                }
+            }
+        }
+
+        function deleteTask(id) {
+            const taskIndex = appState.tasks.findIndex(task => task.id === id);
+            if (taskIndex !== -1) {
+                const deletedTask = appState.tasks[taskIndex];
+                appState.tasks.splice(taskIndex, 1);
+                renderTasks();
+                
+                // If in calendar view, refresh the calendar
+                if (calendarView.style.display !== 'none') {
+                    renderCalendar();
+                    renderDayTasks();
+                }
+                
+                showNewNotification({
+                    type: 'warning',
+                    title: 'Task Deleted',
+                    message: `Deleted task: "${deletedTask.text}"`,
+                    duration: 3000
+                });
+                
+                // Auto-sync with Google Calendar if enabled
+                if (appState.syncEnabled && appState.syncFrequency === 'immediately') {
+                    syncWithGoogleCalendar();
+                }
+            }
+        }
+
+        function clearCompletedTasks() {
+            const completedTasks = appState.tasks.filter(task => task.completed);
+            appState.tasks = appState.tasks.filter(task => !task.completed);
+            renderTasks();
+            
+            // If in calendar view, refresh the calendar
+            if (calendarView.style.display !== 'none') {
+                renderCalendar();
+                renderDayTasks();
+            }
+            
+            showNewNotification({
+                type: 'info',
+                title: 'Tasks Cleared',
+                message: `Cleared ${completedTasks.length} completed task${completedTasks.length !== 1 ? 's' : ''}`,
+                duration: 3000
+            });
+            
+            // Auto-sync with Google Calendar if enabled and any completed task was added to calendar
+            if (appState.syncEnabled && appState.syncFrequency === 'immediately' && 
+                completedTasks.some(task => task.addedToCalendar)) {
+                syncWithGoogleCalendar();
+            }
+        }
+
+        function setFilter(filter) {
+            appState.currentFilter = filter;
+            
+            // Update active filter button
+            filterButtons.forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.classList.add('text-primary', 'bg-primary', 'bg-opacity-10');
+                    btn.classList.remove('text-gray-600', 'dark:text-gray-300');
+                } else {
+                    btn.classList.remove('text-primary', 'bg-primary', 'bg-opacity-10');
+                    btn.classList.add('text-gray-600', 'dark:text-gray-300');
+                }
+            });
+            
+            renderTasks();
+        }
+
+        // Sync with Google Calendar
+        function syncWithGoogleCalendar() {
+            if (!appState.syncEnabled) return;
+            
+            // Simulate syncing with Google Calendar API
+            // In a real app, this would make API calls to Google Calendar
+            
+            // Show sync animation
+            syncButton.classList.add('animate-spin');
+            
+            // Simulate network delay
+            setTimeout(() => {
+                // Update last sync time
+                appState.lastSync = new Date();
+                syncStatus.textContent = `Last sync: ${appState.lastSync.toLocaleString()}`;
+                
+                // Update sync badge
+                syncBadge.classList.remove('hidden');
+                
+                // Stop animation
+                syncButton.classList.remove('animate-spin');
+                
+                // Show success notification
+                showNewNotification({
+                    type: 'success',
+                    title: 'Calendar Synced',
+                    message: 'Tasks successfully synchronized with Google Calendar',
+                    duration: 4000
+                });
+            }, 800);
+        }
+
+        // Notification system
+        function showNewNotification(options) {
+            const { type = 'info', title, message, duration = 5000, persistent = false } = options;
+            
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.dataset.id = generateId();
+            
+            // Set notification content
+            notification.innerHTML = `
+                <div class="notification-icon">
+                    ${getNotificationIcon(type)}
+                </div>
+                <div class="notification-content">
+                    <div class="font-medium">${title}</div>
+                    <div class="text-sm">${message}</div>
+                </div>
+                <div class="notification-close">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+            `;
+            
+            // Add notification to the container
+            notificationContainer.appendChild(notification);
+            
+            // Store notification in history
+            appState.notifications.unshift({
+                id: notification.dataset.id,
+                type,
+                title,
+                message,
+                timestamp: new Date(),
+                read: false
+            });
+            
+            // Update unread count
+            updateUnreadNotificationCount();
+            
+            // Animation delay to allow the DOM to update
+            setTimeout(() => {
+                notification.classList.add('active');
+            }, 10);
+            
+            // Add event listener to close button
+            const closeBtn = notification.querySelector('.notification-close');
+            closeBtn.addEventListener('click', () => {
+                removeNotification(notification);
+            });
+            
+            // Auto-close after duration if not persistent
+            if (!persistent) {
+                setTimeout(() => {
+                    removeNotification(notification);
+                }, duration);
+            }
+            
+            // Update notification history display
+            updateNotificationHistory();
+            
+            return notification;
+        }
+        
+        function removeNotification(notification) {
+            // Start fade out animation
+            notification.classList.remove('active');
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }
+        
+        function getNotificationIcon(type) {
+            switch (type) {
+                case 'success':
+                    return '<svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                case 'warning':
+                    return '<svg class="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+                case 'error':
+                    return '<svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                case 'info':
+                default:
+                    return '<svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+            }
+        }
+        
+        function updateUnreadNotificationCount() {
+            const unreadCount = appState.notifications.filter(n => !n.read).length;
+            if (unreadCount > 0) {
+                unreadBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                unreadBadge.classList.remove('hidden');
+            } else {
+                unreadBadge.classList.add('hidden');
+            }
+        }
+        
+        function updateNotificationHistory() {
+            notificationHistory.innerHTML = '';
+            
+            if (appState.notifications.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'text-center text-gray-500 dark:text-gray-400 py-6';
+                emptyState.textContent = 'No notifications yet';
+                notificationHistory.appendChild(emptyState);
+                return;
+            }
+            
+            // Group notifications by date
+            const groupedNotifications = {};
+            appState.notifications.forEach(notification => {
+                const date = new Date(notification.timestamp).toLocaleDateString();
+                if (!groupedNotifications[date]) {
+                    groupedNotifications[date] = [];
+                }
+                groupedNotifications[date].push(notification);
+            });
+            
+            // Create notification groups
+            for (const date in groupedNotifications) {
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'text-xs font-medium text-gray-500 dark:text-gray-400 py-2 px-4 uppercase';
+                dateHeader.textContent = date === new Date().toLocaleDateString() ? 'Today' : date;
+                notificationHistory.appendChild(dateHeader);
+                
+                const notifications = groupedNotifications[date];
+                
+                notifications.forEach(notification => {
+                    const notificationItem = document.createElement('div');
+                    notificationItem.className = `p-4 border-b border-gray-200 dark:border-gray-700 ${notification.read ? 'opacity-70' : 'bg-blue-50 dark:bg-blue-900 dark:bg-opacity-10'}`;
+                    notificationItem.innerHTML = `
+                        <div class="flex items-start">
+                            <div class="mr-3 mt-0.5">
+                                ${getNotificationIcon(notification.type)}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-start">
+                                    <div class="font-medium text-gray-900 dark:text-white">${notification.title}</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400 ml-2">${new Date(notification.timestamp).toLocaleTimeString()}</div>
+                                </div>
+                                <div class="text-sm text-gray-600 dark:text-gray-300">${notification.message}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Mark as read when viewed
+                    notificationItem.addEventListener('click', () => {
+                        const notificationIndex = appState.notifications.findIndex(n => n.id === notification.id);
+                        if (notificationIndex !== -1) {
+                            appState.notifications[notificationIndex].read = true;
+                            notificationItem.classList.add('opacity-70');
+                            notificationItem.classList.remove('bg-blue-50', 'dark:bg-blue-900', 'dark:bg-opacity-10');
+                            updateUnreadNotificationCount();
+                        }
+                    });
+                    
+                    notificationHistory.appendChild(notificationItem);
+                });
+            }
+        }
+
+        // Theme management functions
+        function updateTheme() {
+            // Update CSS variables
+            document.documentElement.style.setProperty('--primary-color', appState.theme.primaryColor);
+            document.documentElement.style.setProperty('--primary-hover', adjustColor(appState.theme.primaryColor, -20));
+            document.documentElement.style.setProperty('--accent-color', appState.theme.accentColor);
+            document.documentElement.style.setProperty('--dark-bg', appState.theme.darkBg);
+            document.documentElement.style.setProperty('--dark-card', appState.theme.darkCard);
+            
+            // Update animation speed
+            const elements = document.querySelectorAll('.slide-in, .fade-in, .calendar-pulse, .calendar-rotate, .calendar-bounce, .calendar-fly');
+            elements.forEach(el => {
+                el.style.animationDuration = `${1 / appState.theme.animationSpeed}s`;
+            });
+            
+            // Update inputs to reflect the current theme
+            customColorInput.value = appState.theme.primaryColor;
+            customAccentInput.value = appState.theme.accentColor;
+            darkBgInput.value = appState.theme.darkBg;
+            darkCardInput.value = appState.theme.darkCard;
+            darkBgInput.nextElementSibling.textContent = appState.theme.darkBg;
+            darkCardInput.nextElementSibling.textContent = appState.theme.darkCard;
+            animationSpeedInput.value = appState.theme.animationSpeed;
+            calendarAnimationStyle.value = appState.theme.calendarAnimation;
+            
+            // Update selected color options
+            updateSelectedColorOptions();
+            
+            // No notification for theme updates as per user preference
+        }
+        
+        function updateSelectedColorOptions() {
+            // Clear selected state from all options
+            colorOptions.forEach(option => {
+                option.classList.remove('selected');
+            });
+            accentOptions.forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Set selected state for matching options
+            colorOptions.forEach(option => {
+                if (option.dataset.color === appState.theme.primaryColor) {
+                    option.classList.add('selected');
+                }
+            });
+            accentOptions.forEach(option => {
+                if (option.dataset.accent === appState.theme.accentColor) {
+                    option.classList.add('selected');
+                }
+            });
+        }
+        
+        function resetTheme() {
+            appState.theme = {
+                primaryColor: '#5D5CDE',
+                accentColor: '#00C896',
+                darkBg: '#181818',
+                darkCard: '#252525',
+                animationSpeed: 1,
+                calendarAnimation: 'pulse'
+            };
+            updateTheme();
+        }
+        
+        function adjustColor(hex, percent) {
+            // Convert hex to RGB
+            let r = parseInt(hex.substring(1, 3), 16);
+            let g = parseInt(hex.substring(3, 5), 16);
+            let b = parseInt(hex.substring(5, 7), 16);
+            
+            // Adjust color
+            r = Math.max(0, Math.min(255, r + percent));
+            g = Math.max(0, Math.min(255, g + percent));
+            b = Math.max(0, Math.min(255, b + percent));
+            
+            // Convert back to hex
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        }
+
+        // Authentication functions
+        function login(email) {
+            // For demo purposes, simulate successful login
+            appState.currentUser = {
+                email: email,
+                name: email.split('@')[0]
+            };
+            
+            // Update user info in dropdown
+            userEmail.textContent = email;
+            
+            // Hide login screen and show app
+            loginScreen.classList.add('hidden');
+            appScreen.classList.remove('hidden');
+            
+            // Add some demo tasks
+            if (appState.tasks.length === 0) {
+                addTask('Complete project proposal', new Date(Date.now() + 86400000)); // Tomorrow
+                addTask('Schedule meeting with client', new Date(Date.now() + 2 * 86400000)); // Day after tomorrow
+                addTask('Review design mockups', new Date());
+            }
+            
+            // Apply saved theme
+            updateTheme();
+            
+            // Show welcome notification
+            showNewNotification({
+                type: 'success',
+                title: 'Welcome Back',
+                message: `You are logged in as ${appState.currentUser.name}`,
+                duration: 5000
+            });
+        }
+
+        function logout() {
+            // Close dropdown
+            profileDropdown.classList.add('hidden');
+            
+            // Clear user data
+            appState.currentUser = null;
+            
+            // Show login screen and hide app
+            appScreen.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            
+            // Clear form fields
+            emailInput.value = '';
+            passwordInput.value = '';
+            
+            // Clear notifications
+            notificationContainer.innerHTML = '';
+            appState.notifications = [];
+        }
+
+        // Event listeners
+        loginForm.addEventListener('submit', e => {
+            e.preventDefault();
+            if (emailInput.value.trim() !== '' && passwordInput.value.trim() !== '') {
+                login(emailInput.value);
+            }
+        });
+
+        googleLoginBtn.addEventListener('click', () => {
+            // Simulate Google login
+            login('user@gmail.com');
+        });
+
+        taskForm.addEventListener('submit', e => {
+            e.preventDefault();
+            addTask(taskInput.value);
+        });
+
+        // Calendar view toggle
+        calendarViewBtn.addEventListener('click', () => {
+            if (listView.style.display === 'none') {
+                // Switch to list view
+                calendarView.style.display = 'none';
+                listView.style.display = 'block';
+                calendarViewBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Calendar
+                `;
+            } else {
+                // Switch to calendar view
+                listView.style.display = 'none';
+                calendarView.style.display = 'block';
+                calendarViewBtn.innerHTML = `
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                    </svg>
+                    List
+                `;
+                renderCalendar();
+                renderDayTasks();
+            }
+        });
+
+        // Calendar navigation
+        prevMonthBtn.addEventListener('click', () => {
+            appState.calendar.currentMonth--;
+            if (appState.calendar.currentMonth < 0) {
+                appState.calendar.currentMonth = 11;
+                appState.calendar.currentYear--;
+            }
+            renderCalendar();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            appState.calendar.currentMonth++;
+            if (appState.calendar.currentMonth > 11) {
+                appState.calendar.currentMonth = 0;
+                appState.calendar.currentYear++;
+            }
+            renderCalendar();
+        });
+
+        // Theme management
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                appState.theme.primaryColor = option.dataset.color;
+                updateTheme();
+            });
+        });
+
+        accentOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                appState.theme.accentColor = option.dataset.accent;
+                updateTheme();
+            });
+        });
+
+        customColorInput.addEventListener('input', () => {
+            appState.theme.primaryColor = customColorInput.value;
+            updateTheme();
+        });
+
+        customAccentInput.addEventListener('input', () => {
+            appState.theme.accentColor = customAccentInput.value;
+            updateTheme();
+        });
+
+        darkBgInput.addEventListener('input', () => {
+            appState.theme.darkBg = darkBgInput.value;
+            darkBgInput.nextElementSibling.textContent = darkBgInput.value;
+            updateTheme();
+        });
+
+        darkCardInput.addEventListener('input', () => {
+            appState.theme.darkCard = darkCardInput.value;
+            darkCardInput.nextElementSibling.textContent = darkCardInput.value;
+            updateTheme();
+        });
+
+        animationSpeedInput.addEventListener('input', () => {
+            appState.theme.animationSpeed = parseFloat(animationSpeedInput.value);
+            updateTheme();
+        });
+
+        calendarAnimationStyle.addEventListener('change', () => {
+            appState.theme.calendarAnimation = calendarAnimationStyle.value;
+            updateTheme();
+        });
+
+        saveThemeBtn.addEventListener('click', () => {
+            themePanel.classList.remove('translate-x-0');
+            themePanel.classList.add('translate-x-full');
+        });
+
+        resetThemeBtn.addEventListener('click', resetTheme);
+
+        themeButton.addEventListener('click', () => {
+            themePanel.classList.remove('translate-x-full');
+            themePanel.classList.add('translate-x-0');
+        });
+
+        closeThemePanel.addEventListener('click', () => {
+            themePanel.classList.remove('translate-x-0');
+            themePanel.classList.add('translate-x-full');
+        });
+
+        // Light/Dark mode toggle
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        themeToggleLogin.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        // Notifications
+        notificationHistoryBtn.addEventListener('click', () => {
+            notificationModal.classList.remove('hidden');
+            updateNotificationHistory();
+        });
+
+        closeNotificationModal.addEventListener('click', () => {
+            notificationModal.classList.add('hidden');
+            // Mark all notifications as read
+            appState.notifications.forEach(notification => {
+                notification.read = true;
+            });
+            updateUnreadNotificationCount();
+        });
+
+        clearNotificationsBtn.addEventListener('click', () => {
+            appState.notifications = [];
+            updateNotificationHistory();
+            updateUnreadNotificationCount();
+        });
+
+        // Sync modal
+        syncButton.addEventListener('click', () => {
+            syncModal.classList.remove('hidden');
+        });
+
+        closeSyncModal.addEventListener('click', () => {
+            syncModal.classList.add('hidden');
+        });
+
+        syncEnabled.addEventListener('change', () => {
+            syncOptions.style.display = syncEnabled.checked ? 'block' : 'none';
+            appState.syncEnabled = syncEnabled.checked;
+        });
+
+        saveSyncSettings.addEventListener('click', () => {
+            appState.syncEnabled = syncEnabled.checked;
+            appState.syncFrequency = syncFrequency.value;
+            appState.selectedCalendar = calendarSelect.value;
+            
+            if (appState.syncEnabled) {
+                syncWithGoogleCalendar();
+            } else {
+                syncBadge.classList.add('hidden');
+            }
+            
+            syncModal.classList.add('hidden');
+        });
+
+        // Profile dropdown
+        profileButton.addEventListener('click', () => {
+            profileDropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', e => {
+            if (!profileButton.contains(e.target) && !profileDropdown.contains(e.target)) {
+                profileDropdown.classList.add('hidden');
+            }
+        });
+
+        logoutBtn.addEventListener('click', logout);
+
+        // Close modals when clicking outside
+        document.addEventListener('click', e => {
+            if (e.target === syncModal) {
+                syncModal.classList.add('hidden');
+            }
+            if (e.target === notificationModal) {
+                notificationModal.classList.add('hidden');
+            }
+        });
+
+        // Initialize sync options
+        syncOptions.style.display = 'none';
+        
+        // Initialize theme
+        updateTheme();
+    </script>
+</body>
+</html>
